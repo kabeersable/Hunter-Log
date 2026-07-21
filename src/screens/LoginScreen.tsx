@@ -3,11 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { useHunter } from '../context/HunterContext';
 import { Shield, LogIn, UserPlus, AlertCircle, CheckCircle2, KeyRound, Database } from 'lucide-react';
 
-interface LoginScreenProps {
-  onLoginSuccess?: () => void;
-}
-
-export const LoginScreen: React.FC<LoginScreenProps> = () => {
+export const LoginScreen: React.FC = () => {
   const { loginWithUserSession } = useHunter();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const [userInput, setUserInput] = useState('');
@@ -18,7 +14,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
   const configured = isSupabaseConfigured();
 
-  // Format username or email into valid Supabase auth email
   const formatAuthEmail = (input: string): string => {
     const trimmed = input.trim();
     if (trimmed.includes('@')) return trimmed;
@@ -32,51 +27,74 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
     setLoading(true);
 
     const emailToUse = formatAuthEmail(userInput);
+    const cleanInput = userInput.trim().toLowerCase();
 
-    try {
-      // 1. Check Master Admin Credentials local match
-      const cleanInput = userInput.trim().toLowerCase();
-      if ((cleanInput === 'admin_hunter_9247' || cleanInput === 'admin_hunter_9247@hunterlog.com') && password === 'Xk7#mQp2!vT9$wRz4Lc@') {
-        loginWithUserSession({
-          username: 'admin_hunter_9247',
-          passwordHash: 'admin_hash',
-          role: 'admin',
-          createdAt: new Date().toISOString(),
-        });
+    // 1. Instant Master Admin Login Match
+    const isAdminUser =
+      cleanInput === 'admin_hunter_9247' ||
+      cleanInput === 'admin_hunter_9247@hunterlog.com' ||
+      cleanInput === 'admin';
 
-        setSuccessMsg('MASTER ADMIN CLEARANCE UNLOCKED. Loading Master Routine...');
-        
-        // Attempt background Supabase Auth provisioning
-        if (configured) {
-          supabase.auth.signInWithPassword({ email: emailToUse, password }).then(({ error }) => {
-            if (error) {
-              supabase.auth.signUp({ email: emailToUse, password });
-            }
-          });
+    if (isAdminUser && password === 'Xk7#mQp2!vT9$wRz4Lc@') {
+      loginWithUserSession({
+        username: 'admin_hunter_9247',
+        passwordHash: 'admin_hash',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      });
+
+      setSuccessMsg('MASTER ADMIN CLEARANCE UNLOCKED. Loading Master Routine...');
+
+      // Provision account in Supabase Auth silently in background
+      if (configured) {
+        try {
+          const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+          if (error) {
+            await supabase.auth.signUp({ email: emailToUse, password });
+          }
+        } catch {
+          // ignore background auth errors for local admin override
         }
+      }
+      setLoading(false);
+      return;
+    }
+
+    // 2. Standard User Supabase Auth Sign In + Auto Signup on First Try
+    try {
+      if (!configured) {
+        setErrorMsg('Supabase credentials not configured in .env.local.');
         setLoading(false);
         return;
       }
 
-      // 2. Attempt Supabase Auth Sign In
       let { data, error } = await supabase.auth.signInWithPassword({
         email: emailToUse,
         password,
       });
 
-      // 3. Auto-signup fallback if account does not exist in Supabase Auth yet
+      // Auto-create account if signing in for the first time
       if (error && (error.message.includes('Invalid login credentials') || error.message.includes('user_not_found'))) {
+        console.log('[AUTH] Account not found in Supabase Auth. Auto-provisioning new account...');
         const signUpRes = await supabase.auth.signUp({
           email: emailToUse,
           password,
         });
 
-        if (signUpRes.data.session) {
-          setSuccessMsg('ACCOUNT INITIALIZED & AUTHENTICATED.');
+        if (signUpRes.error) {
+          setErrorMsg(signUpRes.error.message);
           setLoading(false);
           return;
-        } else if (signUpRes.error) {
-          setErrorMsg(signUpRes.error.message);
+        }
+
+        // Attempt sign in with newly provisioned account
+        const signInRetry = await supabase.auth.signInWithPassword({
+          email: emailToUse,
+          password,
+        });
+
+        if (signInRetry.data.session) {
+          setSuccessMsg('ACCOUNT PROVISIONED & CLOUD SESSION CREATED.');
           setLoading(false);
           return;
         }
@@ -109,15 +127,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: emailToUse,
         password,
       });
 
       if (error) {
         setErrorMsg(error.message);
-      } else if (data.user) {
-        setSuccessMsg('Account created successfully! Logging into cloud matrix...');
+      } else {
+        setSuccessMsg('Account created successfully! Signing into cloud matrix...');
         await supabase.auth.signInWithPassword({
           email: emailToUse,
           password,
@@ -316,7 +334,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
         {/* Footer */}
         <div className="pt-2 text-center text-[10px] font-mono text-slate-600">
-          <span>Row Level Security (RLS) Encrypted Matrix • v2.0.0</span>
+          <span>Row Level Security (RLS) Encrypted Matrix • v2.0.1</span>
         </div>
       </div>
     </div>
