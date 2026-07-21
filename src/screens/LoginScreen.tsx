@@ -35,17 +35,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
     try {
       // 1. Check Master Admin Credentials local match
-      if (userInput.trim() === 'admin_hunter_9247' && password === 'Xk7#mQp2!vT9$wRz4Lc@') {
+      const cleanInput = userInput.trim().toLowerCase();
+      if ((cleanInput === 'admin_hunter_9247' || cleanInput === 'admin_hunter_9247@hunterlog.com') && password === 'Xk7#mQp2!vT9$wRz4Lc@') {
         loginWithUserSession({
           username: 'admin_hunter_9247',
           passwordHash: 'admin_hash',
           role: 'admin',
           createdAt: new Date().toISOString(),
         });
-      }
 
-      if (!configured) {
-        setSuccessMsg('LOCAL ADMIN SESSION INITIALIZED.');
+        setSuccessMsg('MASTER ADMIN CLEARANCE UNLOCKED. Loading Master Routine...');
+        
+        // Attempt background Supabase Auth provisioning
+        if (configured) {
+          supabase.auth.signInWithPassword({ email: emailToUse, password }).then(({ error }) => {
+            if (error) {
+              supabase.auth.signUp({ email: emailToUse, password });
+            }
+          });
+        }
         setLoading(false);
         return;
       }
