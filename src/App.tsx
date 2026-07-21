@@ -33,7 +33,7 @@ const MainApp: React.FC = () => {
       <SystemHeader />
 
       {/* Main View Container */}
-      <main className="max-w-4xl mx-auto px-4 pt-4">
+      <main className="max-w-4xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4 pb-20 md:pb-6">
         {activeTab === 'checklist' && <ChecklistScreen />}
         {activeTab === 'dashboard' && <DashboardScreen />}
         {activeTab === 'routine' && <RoutineManageScreen />}
