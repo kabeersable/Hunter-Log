@@ -1,7 +1,7 @@
 import React from 'react';
 import { HunterProvider, useHunter } from './context/HunterContext';
 import { SystemHeader } from './components/SystemHeader';
-import { OnboardingScreen } from './screens/OnboardingScreen';
+import { LoginScreen } from './screens/LoginScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ChecklistScreen } from './screens/ChecklistScreen';
 import { RoutineManageScreen } from './screens/RoutineManageScreen';
@@ -19,9 +19,9 @@ const MainApp: React.FC = () => {
     );
   }
 
-  // If no hunter profile registered, show Onboarding
+  // Render Login Screen if no active session
   if (!state.hunter) {
-    return <OnboardingScreen />;
+    return <LoginScreen />;
   }
 
   return (

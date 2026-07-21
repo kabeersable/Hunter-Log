@@ -19,6 +19,7 @@ import {
   awardXpAndCheckLevelUp,
   isTaskScheduledForDay
 } from '../engine/gameEngine';
+import { AuthService, type UserAccount } from '../utils/authService';
 import {
   PERSONAL_SEED,
   GENERIC_PUBLIC_SEED,
@@ -26,6 +27,10 @@ import {
   buildMilestoneFromSeed
 } from '../data/seedData';
 import { NotificationService } from '../utils/notificationService';
+import { supabase } from '../lib/supabaseClient';
+import { SupabaseStorageAdapter } from '../storage/supabaseStorageAdapter';
+
+const supabaseAdapter = new SupabaseStorageAdapter();
 
 interface HunterContextType {
   state: GameState;
@@ -58,6 +63,11 @@ interface HunterContextType {
   }) => void;
   toggleTaskActive: (taskId: string) => void;
   addBossQuest: (title: string, statTrained: StatKey, xpReward: number) => void;
+  isAdmin: boolean;
+  loginWithUserSession: (user: UserAccount) => void;
+  logoutUser: () => void;
+  authenticateAdmin: (passcode: string) => boolean;
+  logoutAdmin: () => void;
   loadSeedPreset: (presetType: 'personal' | 'generic') => void;
   enableNotifications: () => Promise<boolean>;
   sendTestNotification: () => void;
@@ -84,22 +94,104 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeTab, setActiveTab] = useState<'dashboard' | 'checklist' | 'routine' | 'report'>('checklist');
   const [secondsUntilMidnight, setSecondsUntilMidnight] = useState<number>(0);
   const [proofModalLog, setProofModalLog] = useState<DailyLogEntry | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem('HUNTER_SYSTEM_ADMIN_AUTH') === 'true';
+  });
 
-  // Load state on startup
+  const authenticateAdmin = (passcode: string): boolean => {
+    const validPins = ['7777', '1337', 'hunter', 'admin'];
+    if (validPins.includes(passcode.trim().toLowerCase())) {
+      setIsAdmin(true);
+      localStorage.setItem('HUNTER_SYSTEM_ADMIN_AUTH', 'true');
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAdmin = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('HUNTER_SYSTEM_ADMIN_AUTH');
+  };
+
+  const loginWithUserSession = (user: UserAccount) => {
+    AuthService.setActiveSession(user);
+    if (user.role === 'admin' || user.username === 'admin_hunter_9247') {
+      setIsAdmin(true);
+      localStorage.setItem('HUNTER_SYSTEM_ADMIN_AUTH', 'true');
+      completeOnboarding('Master Hunter', undefined, 'personal');
+    } else {
+      setIsAdmin(false);
+      localStorage.removeItem('HUNTER_SYSTEM_ADMIN_AUTH');
+      completeOnboarding(user.username, undefined, 'generic');
+    }
+  };
+
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+
+  const logoutUser = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // ignore
+    }
+    AuthService.logout();
+    setIsAdmin(false);
+    setSupabaseUserId(null);
+    localStorage.removeItem('HUNTER_SYSTEM_ADMIN_AUTH');
+    setState(defaultGameState);
+    storageAdapter.clearState();
+  };
+
+  // Listen for Supabase Auth state changes & load state from Supabase / cache
   useEffect(() => {
-    async function init() {
-      const loaded = await storageAdapter.loadState();
-      if (loaded && loaded.hunter) {
-        // Run rollover check against current time
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setIsLoading(true);
+      if (session?.user) {
+        const userId = session.user.id;
+        setSupabaseUserId(userId);
+
+        let loaded = await supabaseAdapter.loadState(userId);
+        if (!loaded || !loaded.hunter) {
+          // Initialize new account with default seed
+          const defaultTasks = PERSONAL_SEED.routineTasks.map((t, idx) =>
+            buildRoutineTaskFromSeed(t, idx, getTodayDateString(new Date()))
+          );
+          const defaultMilestones = PERSONAL_SEED.milestones.map((m, idx) =>
+            buildMilestoneFromSeed(m, idx)
+          );
+          const initialHunter = createInitialHunter(session.user.email || 'Master Hunter');
+          loaded = {
+            hunter: initialHunter,
+            tasks: defaultTasks,
+            logs: [],
+            bossQuests: [],
+            penaltyRecords: [],
+            notifications: [],
+            weeklyReports: [],
+            milestones: defaultMilestones,
+          };
+          await supabaseAdapter.saveState(userId, loaded);
+        }
+
         const updated = processMidnightRollover(loaded, new Date());
         setState(updated);
-        await storageAdapter.saveState(updated);
+        await supabaseAdapter.saveState(userId, updated);
       } else {
-        setState(defaultGameState);
+        setSupabaseUserId(null);
+        const loaded = await storageAdapter.loadState();
+        if (loaded && loaded.hunter) {
+          const updated = processMidnightRollover(loaded, new Date());
+          setState(updated);
+        } else {
+          setState(defaultGameState);
+        }
       }
       setIsLoading(false);
-    }
-    init();
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   // Countdown timer to midnight local time & periodic rollover checker
@@ -120,6 +212,9 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const updated = processMidnightRollover(state, now);
           setState(updated);
           storageAdapter.saveState(updated);
+          if (supabaseUserId) {
+            supabaseAdapter.saveState(supabaseUserId, updated);
+          }
         }
       }
     };
@@ -127,7 +222,7 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [state]);
+  }, [state, supabaseUserId]);
 
   const saveState = useCallback(async (newState: GameState) => {
     if (newState.notifications.length > state.notifications.length) {
@@ -138,7 +233,11 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     setState(newState);
     await storageAdapter.saveState(newState);
-  }, [state.notifications.length]);
+
+    if (supabaseUserId) {
+      await supabaseAdapter.saveState(supabaseUserId, newState);
+    }
+  }, [state.notifications.length, supabaseUserId]);
 
   const enableNotifications = async (): Promise<boolean> => {
     return await NotificationService.requestPermission();
@@ -470,6 +569,11 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleTaskActive,
         addBossQuest,
         loadSeedPreset,
+        isAdmin,
+        loginWithUserSession,
+        logoutUser,
+        authenticateAdmin,
+        logoutAdmin,
         enableNotifications,
         sendTestNotification,
         dismissNotification,

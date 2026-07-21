@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useHunter } from '../context/HunterContext';
-import { Flame, Shield, Award, Coins, RotateCcw, AlertTriangle, Layers, CalendarCheck, Bell } from 'lucide-react';
+import { AdminAuthModal } from './AdminAuthModal';
+import { Flame, Shield, Award, Coins, RotateCcw, AlertTriangle, Layers, CalendarCheck, Bell, LogOut } from 'lucide-react';
 import { isRankFrozen } from '../engine/gameEngine';
 
 export const SystemHeader: React.FC = () => {
-  const { state, activeTab, setActiveTab, resetAllData, sendTestNotification } = useHunter();
+  const { state, activeTab, setActiveTab, resetAllData, sendTestNotification, isAdmin, logoutUser } = useHunter();
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
   const hunter = state.hunter;
 
   if (!hunter) return null;
@@ -21,12 +23,20 @@ export const SystemHeader: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
             </span>
-            <span className="text-cyan-400 font-bold tracking-wider">[SYSTEM ONLINE]</span>
+            <button
+              onClick={() => setShowAdminAuthModal(true)}
+              className="text-cyan-400 font-bold tracking-wider hover:text-cyan-300 transition-colors flex items-center gap-1 cursor-default"
+              title=""
+            >
+              <span>[SYSTEM ONLINE]</span>
+              {isAdmin && <span className="text-[10px] text-cyan-400 font-extrabold">•</span>}
+            </button>
             <span className="text-slate-500 hidden sm:inline">|</span>
             <span className="text-slate-300 font-semibold hidden sm:inline">{hunter.name}</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+
             {/* Coins */}
             <div className="flex items-center gap-1 text-gold-glow font-bold">
               <Coins className="w-3.5 h-3.5 text-amber-400" />
@@ -49,11 +59,24 @@ export const SystemHeader: React.FC = () => {
               <span className="hidden sm:inline font-bold">NOTIFS</span>
             </button>
 
+            {/* Log Out */}
+            <button
+              onClick={() => {
+                if (confirm('Log out of current System session?')) {
+                  logoutUser();
+                }
+              }}
+              title="Log Out of System"
+              className="text-slate-500 hover:text-red-400 transition-colors p-1"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+
             {/* Reset */}
             <button
               onClick={resetAllData}
               title="Reset System Protocol"
-              className="text-slate-500 hover:text-red-400 transition-colors p-1"
+              className="text-slate-500 hover:text-red-400 transition-colors p-1 text-[10px] font-mono"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -161,6 +184,8 @@ export const SystemHeader: React.FC = () => {
           </nav>
         </div>
       </div>
+
+      <AdminAuthModal isOpen={showAdminAuthModal} onClose={() => setShowAdminAuthModal(false)} />
     </header>
   );
 };

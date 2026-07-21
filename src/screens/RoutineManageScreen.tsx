@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useHunter } from '../context/HunterContext';
 import type { StatKey, TaskType, QuestDifficulty } from '../types/hunter';
 import { MilestoneList } from '../components/MilestoneList';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 import { Layers, Plus, Pause, Play, Info, UserCheck, Globe } from 'lucide-react';
 
 export const RoutineManageScreen: React.FC = () => {
-  const { state, addTask, toggleTaskActive, loadSeedPreset } = useHunter();
+  const { state, addTask, toggleTaskActive, loadSeedPreset, isAdmin } = useHunter();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [type, setType] = useState<TaskType>('main');
@@ -61,14 +63,18 @@ export const RoutineManageScreen: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
+                if (!isAdmin) {
+                  setShowAdminModal(true);
+                  return;
+                }
                 if (confirm('Load Personal Routine Seed dataset? This will update active tasks and milestones.')) {
                   loadSeedPreset('personal');
                 }
               }}
               className="px-2.5 py-1.5 bg-cyan-950 border border-cyan-500/40 text-cyan-300 hover:text-white font-mono text-xs rounded transition-all flex items-center gap-1"
-              title="Load personal default routine dataset"
+              title="Load personal master routine dataset (Admin Only)"
             >
-              <UserCheck className="w-3.5 h-3.5" /> LOAD MY SEED
+              <UserCheck className="w-3.5 h-3.5" /> {isAdmin ? 'LOAD MY SEED' : '🔒 MASTER SEED'}
             </button>
 
             <button
@@ -80,7 +86,7 @@ export const RoutineManageScreen: React.FC = () => {
               className="px-2.5 py-1.5 bg-purple-950 border border-purple-500/40 text-purple-300 hover:text-white font-mono text-xs rounded transition-all flex items-center gap-1"
               title="Load generic public starter dataset"
             >
-              <Globe className="w-3.5 h-3.5" /> LOAD PUBLIC SEED
+              <Globe className="w-3.5 h-3.5" /> LOAD STARTER SEED
             </button>
 
             <button
@@ -280,6 +286,8 @@ export const RoutineManageScreen: React.FC = () => {
 
       {/* Milestones Section */}
       <MilestoneList />
+
+      <AdminAuthModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
     </div>
   );
 };

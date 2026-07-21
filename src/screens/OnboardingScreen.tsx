@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useHunter } from '../context/HunterContext';
 import type { StatKey } from '../types/hunter';
 import { Shield, Plus, Trash2, CheckCircle2, AlertTriangle, Sparkles, UserCheck, Globe } from 'lucide-react';
-import { PERSONAL_SEED } from '../data/seedData';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 const PRESET_SUGGESTIONS: { title: string; target: string; stat: StatKey }[] = [
   { title: 'Morning Workout', target: '45 min', stat: 'STR' },
@@ -13,10 +13,11 @@ const PRESET_SUGGESTIONS: { title: string; target: string; stat: StatKey }[] = [
 ];
 
 export const OnboardingScreen: React.FC = () => {
-  const { completeOnboarding } = useHunter();
+  const { completeOnboarding, isAdmin } = useHunter();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
-  const [presetChoice, setPresetChoice] = useState<'personal' | 'generic' | 'custom'>('personal');
+  const [presetChoice, setPresetChoice] = useState<'personal' | 'generic' | 'custom'>('generic');
+  const [showAdminModal, setShowAdminModal] = useState(false);
   
   // Tasks setup
   const [mainTasks, setMainTasks] = useState<{ title: string; target: string; statTrained: StatKey }[]>([
@@ -128,7 +129,13 @@ export const OnboardingScreen: React.FC = () => {
 
               <div className="space-y-2">
                 <div
-                  onClick={() => setPresetChoice('personal')}
+                  onClick={() => {
+                    if (!isAdmin) {
+                      setShowAdminModal(true);
+                      return;
+                    }
+                    setPresetChoice('personal');
+                  }}
                   className={`p-3 rounded border cursor-pointer transition-all ${
                     presetChoice === 'personal'
                       ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300 shadow-cyan-glow'
@@ -138,14 +145,16 @@ export const OnboardingScreen: React.FC = () => {
                   <div className="font-bold text-sm flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <UserCheck className="w-4 h-4 text-cyan-400" />
-                      MY PERSONAL ROUTINE (DEFAULT)
+                      {isAdmin ? 'MY PERSONAL MASTER ROUTINE' : '🔒 MY PERSONAL ROUTINE (ADMIN LOCKED)'}
                     </span>
                     <span className="text-[10px] bg-cyan-950 px-2 py-0.5 border border-cyan-800 rounded">
-                      {PERSONAL_SEED.routineTasks.length} Quests + {PERSONAL_SEED.milestones.length} Milestones
+                      {isAdmin ? 'UNLOCKED' : 'PASSCODE REQUIRED'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Pre-loaded with Gym, DSA/LeetCode, AI/ML, Java Full Stack, Skincare, IELTS, and Milestones.
+                    {isAdmin
+                      ? 'Pre-loaded with Gym, DSA/LeetCode, AI/ML, Java Full Stack, Skincare, IELTS, and Milestones.'
+                      : 'Protected personal routine. Enter Admin passcode (1337) to unlock.'}
                   </p>
                 </div>
 
@@ -359,6 +368,12 @@ export const OnboardingScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AdminAuthModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onSuccess={() => setPresetChoice('personal')}
+      />
     </div>
   );
 };
