@@ -1,0 +1,23 @@
+{
+  "name": "Hunter Log - Daily System Protocol",
+  "short_name": "HunterLog",
+  "description": "Hardcore gamified daily routine tracker inspired by Solo Leveling.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
