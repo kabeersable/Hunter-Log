@@ -1,9 +1,9 @@
 import React from 'react';
 import { useHunter } from '../context/HunterContext';
-import { Award, CheckCircle2, Lock, Sparkles, Target, Layers } from 'lucide-react';
+import { Award, CheckCircle2, Lock, Sparkles, Target, Layers, Trash2 } from 'lucide-react';
 
 export const MilestoneList: React.FC = () => {
-  const { state, completeMilestone } = useHunter();
+  const { state, completeMilestone, deleteMilestone } = useHunter();
   const milestones = state.milestones || [];
 
   if (milestones.length === 0) return null;
@@ -82,7 +82,7 @@ export const MilestoneList: React.FC = () => {
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex items-center gap-2">
                       {isDone ? (
                         <span className="px-2.5 py-1 bg-green-950 border border-green-500 text-green-400 text-[10px] font-bold rounded">
                           CLEARED
@@ -99,6 +99,18 @@ export const MilestoneList: React.FC = () => {
                           CLAIM MILESTONE
                         </button>
                       )}
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete milestone "${m.title}"?`)) {
+                            deleteMilestone(m.id);
+                          }
+                        }}
+                        className="text-slate-500 hover:text-red-400 p-1 transition-colors"
+                        title="Delete milestone"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -134,7 +146,20 @@ export const MilestoneList: React.FC = () => {
                       <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-300">
                         {m.cadence}
                       </span>
-                      {m.stat && <span className="text-cyan-400 font-bold">{m.stat} +2</span>}
+                      <div className="flex items-center gap-2">
+                        {m.stat && <span className="text-cyan-400 font-bold">{m.stat} +2</span>}
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete milestone "${m.title}"?`)) {
+                              deleteMilestone(m.id);
+                            }
+                          }}
+                          className="text-slate-500 hover:text-red-400 p-0.5 transition-colors"
+                          title="Delete milestone"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="font-bold text-sm text-slate-100">{m.title}</div>

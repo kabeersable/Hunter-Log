@@ -3,10 +3,10 @@ import { useHunter } from '../context/HunterContext';
 import type { StatKey, TaskType, QuestDifficulty } from '../types/hunter';
 import { MilestoneList } from '../components/MilestoneList';
 import { AdminAuthModal } from '../components/AdminAuthModal';
-import { Layers, Plus, Pause, Play, Info, UserCheck, Globe } from 'lucide-react';
+import { Layers, Plus, Pause, Play, Info, UserCheck, Globe, Trash2 } from 'lucide-react';
 
 export const RoutineManageScreen: React.FC = () => {
-  const { state, addTask, toggleTaskActive, loadSeedPreset, isAdmin } = useHunter();
+  const { state, addTask, toggleTaskActive, deleteTask, loadSeedPreset, isAdmin } = useHunter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [title, setTitle] = useState('');
@@ -256,30 +256,44 @@ export const RoutineManageScreen: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                if (task.active && task.type === 'main' && activeMainCount <= 3) {
-                  alert('SYSTEM REQUIREMENT: Minimum 3 active Main Quests required.');
-                  return;
-                }
-                toggleTaskActive(task.id);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs transition-all ${
-                task.active
-                  ? 'bg-slate-800 hover:bg-red-950 text-slate-300 hover:text-red-400 border border-slate-700'
-                  : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40'
-              }`}
-            >
-              {task.active ? (
-                <>
-                  <Pause className="w-3.5 h-3.5" /> PAUSE
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5" /> ACTIVATE
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (task.active && task.type === 'main' && activeMainCount <= 3) {
+                    alert('SYSTEM REQUIREMENT: Minimum 3 active Main Quests required.');
+                    return;
+                  }
+                  toggleTaskActive(task.id);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs transition-all ${
+                  task.active
+                    ? 'bg-slate-800 hover:bg-red-950 text-slate-300 hover:text-red-400 border border-slate-700'
+                    : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40'
+                }`}
+              >
+                {task.active ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5" /> PAUSE
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" /> ACTIVATE
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (confirm(`Permanently delete task "${task.title}"?`)) {
+                    deleteTask(task.id);
+                  }
+                }}
+                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/60 rounded border border-slate-800 hover:border-red-800 transition-colors"
+                title="Delete Task"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ))}
       </div>

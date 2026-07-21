@@ -1,11 +1,37 @@
 import type {
   Hunter,
+  RoutineTask,
+  Milestone,
   DailyLogEntry,
   BossQuest,
   PenaltyRecord,
   GameState,
   RankType,
 } from '../types/hunter';
+
+export function deduplicateTasks(tasks: RoutineTask[]): RoutineTask[] {
+  const seen = new Set<string>();
+  return tasks.filter((task) => {
+    const key = `${task.title.trim().toLowerCase()}-${task.type}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+export function deduplicateMilestones(milestones: Milestone[]): Milestone[] {
+  const seen = new Set<string>();
+  return milestones.filter((ms) => {
+    const key = `${ms.title.trim().toLowerCase()}-${ms.cadence}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
 
 export const INITIAL_STATS = {
   STR: 10,

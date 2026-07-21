@@ -17,7 +17,9 @@ import {
   completeBossQuest,
   getTodayDateString,
   awardXpAndCheckLevelUp,
-  isTaskScheduledForDay
+  isTaskScheduledForDay,
+  deduplicateTasks,
+  deduplicateMilestones
 } from '../engine/gameEngine';
 import { AuthService, type UserAccount } from '../utils/authService';
 import {
@@ -62,6 +64,8 @@ interface HunterContextType {
     timeSlot?: string;
   }) => void;
   toggleTaskActive: (taskId: string) => void;
+  deleteTask: (taskId: string) => void;
+  deleteMilestone: (milestoneId: string) => void;
   addBossQuest: (title: string, statTrained: StatKey, xpReward: number) => void;
   isAdmin: boolean;
   loginWithUserSession: (user: UserAccount) => void;
@@ -225,17 +229,23 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [state, supabaseUserId]);
 
   const saveState = useCallback(async (newState: GameState) => {
-    if (newState.notifications.length > state.notifications.length) {
-      const newest = newState.notifications[0];
+    const deduplicatedState: GameState = {
+      ...newState,
+      tasks: deduplicateTasks(newState.tasks),
+      milestones: deduplicateMilestones(newState.milestones),
+    };
+
+    if (deduplicatedState.notifications.length > state.notifications.length) {
+      const newest = deduplicatedState.notifications[0];
       if (newest) {
         NotificationService.sendNotification(newest.title, newest.message, newest.type);
       }
     }
-    setState(newState);
-    await storageAdapter.saveState(newState);
+    setState(deduplicatedState);
+    await storageAdapter.saveState(deduplicatedState);
 
     if (supabaseUserId) {
-      await supabaseAdapter.saveState(supabaseUserId, newState);
+      await supabaseAdapter.saveState(supabaseUserId, deduplicatedState);
     }
   }, [state.notifications.length, supabaseUserId]);
 
@@ -470,6 +480,31 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveState({ ...state, tasks: updatedTasks });
   };
 
+  const deleteTask = async (taskId: string) => {
+    const updatedTasks = state.tasks.filter((t) => t.id !== taskId);
+    const updatedLogs = state.logs.filter((l) => l.routineTaskId !== taskId);
+    saveState({ ...state, tasks: updatedTasks, logs: updatedLogs });
+    if (supabaseUserId) {
+      try {
+        await supabase.from('routine_tasks').delete().eq('id', taskId);
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
+  const deleteMilestone = async (milestoneId: string) => {
+    const updatedMilestones = state.milestones.filter((m) => m.id !== milestoneId);
+    saveState({ ...state, milestones: updatedMilestones });
+    if (supabaseUserId) {
+      try {
+        await supabase.from('milestones').delete().eq('id', milestoneId);
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
   const addBossQuest = (title: string, statTrained: StatKey, xpReward: number) => {
     const todayStr = getTodayDateString(new Date());
     const newBossQuest = {
@@ -567,6 +602,8 @@ export const HunterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         completeMilestone,
         addTask,
         toggleTaskActive,
+        deleteTask,
+        deleteMilestone,
         addBossQuest,
         loadSeedPreset,
         isAdmin,

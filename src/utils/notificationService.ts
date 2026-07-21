@@ -16,6 +16,8 @@ export interface NotificationOptions {
 const notifiedKeys = new Set<string>();
 const activeTimeouts = new Map<string, number>();
 
+const recentNotificationHashes = new Map<string, number>();
+
 export class NotificationService {
   static isSupported(): boolean {
     return 'Notification' in window;
@@ -58,12 +60,21 @@ export class NotificationService {
       return;
     }
 
+    // Deduplicate: Don't resend identical notification within 15 seconds
+    const notifHash = `${title.trim()}:${body.trim()}`;
+    const nowMs = Date.now();
+    const lastSent = recentNotificationHashes.get(notifHash);
+    if (lastSent && nowMs - lastSent < 15000) {
+      return;
+    }
+    recentNotificationHashes.set(notifHash, nowMs);
+
     const systemTitle = `[SYSTEM PROTOCOL] ${title}`;
     const options: NotificationOptions = {
       body,
       icon: '/favicon.svg',
       badge: '/favicon.svg',
-      tag: `system-${Date.now()}`,
+      tag: `system-${notifHash.replace(/[^a-zA-Z0-9]/g, '_')}`,
       vibrate: type === 'penalty' ? [400, 150, 400] : [150, 100, 150],
     };
 
